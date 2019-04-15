@@ -152,3 +152,75 @@ func main() {
 没有隐式类型转化，必须显式类型转化。
 
 在函数体内，变量申明了但不使用会报错。
+
+# Flow control statements
+
+`for`，可以没有`()`，但一定要有`{}`
+
+```go
+for i := 0; i < 10; i++ {
+	sum += i
+}
+```
+
+go没有`while`，但可以用`for`代替
+
+```go
+sum := 1
+for sum < 1000 {
+	sum += sum
+}
+```
+
+`if`，可以没有`()`，但一定要有`{}`
+
+```go
+if x < 0 {
+	return sqrt(-x) + "i"
+}
+```
+
+`if`可以像`for`那样先带个statement。假如申明了变量，则只能在`if`或后续的`else`中使用。
+
+```go
+func pow(x, n, lim float64) float64 {
+	if v := math.Pow(x, n); v < lim {
+		return v
+	} else {
+		fmt.Printf("%g >= %g\n", v, lim)
+	}
+	// can't use v here, though
+	return lim
+}
+```
+
+`switch`, 满足其中一个`case`即执行其中的语句，不会再执行其他case的语句，可看成自带`break``。此外，case`不一定要接整数常量，它可以不是整数，可以不是常量。但要注意`case`后接的类型和`switch`比较的类型相同。
+
+`switch`同样可以像`for`那样先带个statement。
+
+```go
+func main() {
+	fmt.Print("Go runs on ")
+	switch os := runtime.GOOS; os {
+	case "darwin":
+		fmt.Println("OS X.")
+	case "linux":
+		fmt.Println("Linux.")
+	default:
+		// freebsd, openbsd,
+		// plan9, windows...
+		fmt.Printf("%s.\n", os)
+	}
+}
+```
+
+`defer` 推迟执行，具有LIFO的性质
+
+```go
+func main() {
+	defer fmt.Printf("1 ")
+	defer fmt.Printf("2 ")
+	fmt.Printf("3 ")
+	// 将输出3 2 1
+}
+```
