@@ -224,3 +224,171 @@ func main() {
 	// 将输出3 2 1
 }
 ```
+
+# More types
+
+## Pointers
+
+指针，和C不一样，Go没有指针的算术运算，即不支持`p = p + 10`这样的语句
+
+## Structs
+
+结构体，可将`(*p).X`写成`p.X`
+
+```go
+type Vertex struct {
+	X int
+	Y int
+}
+
+var (
+	v1 = Vertex{1, 2}  // has type Vertex
+	v2 = Vertex{X: 1}  // Y:0 is implicit
+	v3 = Vertex{}      // X:0 and Y:0
+	p  = &Vertex{1, 2} // has type *Vertex
+)
+```
+
+## Arrays
+
+数组
+
+```go
+func main() {
+	var a [2]string
+	a[0] = "Hello"
+	a[1] = "World"
+	fmt.Println(a[0], a[1])
+	fmt.Println(a)
+
+	primes := [6]int{2, 3, 5, 7, 11, 13}
+	fmt.Println(primes)
+}
+```
+
+## Slices
+
+切片，本身不存储实际数据，类似于引用
+
+```go
+func main() {
+	primes := [6]int{2, 3, 5, 7, 11, 13}
+
+	var s []int = primes[1:4]
+	fmt.Println(s)
+}
+```
+
+切片数组，可以改变指向的范围
+
+```go
+func main() {
+	r := []bool{true, true, true, false, false, false}
+	t := []bool{true, true, true, false, false, false}
+	fmt.Println(r)
+	r = r[1:2]
+	fmt.Println(r)
+	r = r[0:3]
+	fmt.Println(r)
+    # 输出[true true false]，即最开始的[1,4]
+	r = t
+	fmt.Println(r)
+}
+```
+
+切片，可省略下界或上界
+
+`cap()` 查看容量，即从下界到数组最后一个元素的个数
+
+`len()`查看长度，即从下界到上界的个数
+
+切片为`nil`时，`cap`和`len`都为0
+
+
+使用`make`来创建一维切片
+
+```go
+func main() {
+	a := make([]int, 5)
+	printSlice("a", a)
+
+	b := make([]int, 0, 5)  // len(b)=0, cap(b)=5
+	printSlice("b", b)
+
+	c := b[:2]
+	printSlice("c", c)
+
+	d := c[2:5]
+	printSlice("d", d)
+}
+
+func printSlice(s string, x []int) {
+	fmt.Printf("%s len=%d cap=%d %v\n",
+		s, len(x), cap(x), x)
+}
+```
+
+
+使用`make`创建二维切片
+
+```go
+// 创建一个位数为[dx][dy]的切片
+a := make([][]uint8, dx)
+for i := range a {
+	a[i] = make([]uint8, dy)
+}
+```
+
+创建二维切片
+
+```go
+func main() {
+	// Create a tic-tac-toe board.
+	board := [][]string{
+		[]string{"_", "_", "_"},
+		[]string{"_", "_", "_"},
+		[]string{"_", "_", "_"},
+	}
+
+	// The players take turns.
+	board[0][0] = "X"
+	board[2][2] = "O"
+	board[1][2] = "X"
+	board[1][0] = "O"
+	board[0][2] = "X"
+	for i := 0; i < len(board); i++ {
+		fmt.Printf("%s\n", strings.Join(board[i], " "))
+	}
+	/*
+		X _ X
+		O _ X
+		_ _ O
+	*/
+}
+```
+
+可使用`append`函数向切片添加元素，假如切片容量不足，则容量会翻倍。
+
+```go
+func main() {
+	var s []int
+	s = append(s, 2, 3, 4)
+	fmt.Println(s)
+}
+```
+
+可使用`range`遍历切片，每次循环会有两个值，一个是元素的下标，一个是元素的值。可使用`_`忽略其中一个。
+
+```go
+func main() {
+	pow := []int{4, 1, 5}
+	for _, value := range pow {
+		fmt.Printf("%d\n", value)
+	}
+    
+    // 只有一个值只会得到下标
+    for idx := range pow {
+		fmt.Printf("%d\n", pow[idx])
+	}
+}
+```
