@@ -759,3 +759,105 @@ type Image interface {
     At(x, y int) color.Color
 }
 ```
+
+# Concurrency
+
+Goroutines 轻型线程，它们共享同一地址的内存，需要同步控制
+
+`go f(x, y, z)` 创建一个新Goroutine运行函数`f`
+
+Channels 可用于传递数据的一种数据类型，需要用到运算符`<-`
+
+```go
+func sum(s []int, c chan int) {
+	sum := 0
+	for _, v := range s {
+		sum += v
+	}
+	c <- sum // send sum to c
+}
+
+func main() {
+	s := []int{7, 2, 8, -9, 4, 0}
+
+	c := make(chan int)
+	go sum(s[:len(s)/2], c)
+	go sum(s[len(s)/2:], c)
+	x, y := <-c, <-c // receive from c
+
+	fmt.Println(x, y, x+y)
+}
+```
+
+Buffered Channels 可理解为大小的Channel，满了还往里面添加的话会报错
+
+可使用range来取出channel中的所有数据，注意channel要close
+
+`<-ch`实际上会返回两个值，第二个值代表是否还有数据，即`false` 表示channel close了
+
+```go
+func fibonacci(n int, c chan int) {
+	x, y := 0, 1
+	for i := 0; i < n; i++ {
+		c <- x
+		x, y = y, x+y
+	}
+	close(c)
+}
+
+func main() {
+	c := make(chan int, 10)
+	go fibonacci(cap(c), c)
+	for i := range c {
+		fmt.Println(i)
+	}
+}
+```
+
+`select `用于多个channel的选择，哪个channel有数据就执行哪一个，假如同时有数据来了，就随机先执行其中一个
+
+`select`中的`default`在没有收到任何channel数据的时候执行
+
+
+
+`sync.Mutex`  用于互斥
+
+```go
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+// SafeCounter is safe to use concurrently.
+type SafeCounter struct {
+	v   map[string]int
+	mux sync.Mutex
+}
+
+// Inc increments the counter for the given key.
+func (c *SafeCounter) Inc(key string) {
+	c.mux.Lock()
+	// Lock so only one goroutine at a time can access the map c.v.
+	c.v[key]++
+	c.mux.Unlock()
+}
+
+// Value returns the current value of the counter for the given key.
+func (c *SafeCounter) Value(key string) int {
+	c.mux.Lock()
+	// Lock so only one goroutine at a time can access the map c.v.
+	defer c.mux.Unlock()
+	return c.v[key]
+}
+
+func main() {
+	c := SafeCounter{v: make(map[string]int)}
+	for i := 0; i < 1000; i++ {
+		go c.Inc("somekey")
+	}
+
+	time.Sleep(time.Second)
+	fmt.Println(c.Value("somekey"))
+}
+```
