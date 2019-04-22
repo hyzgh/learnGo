@@ -78,3 +78,174 @@
    ```
 
 6. 在64位架构的机器上，一个切片需要24字节的内存，即指针，长度和容量。
+
+# ch5 Go 语言的类型系统
+
+补充点：
+
+1. 编译器只允许为命名的用户定义的类型声明方法
+
+2. 多态的写法
+
+   ```go
+   type notifier interface {
+   	notify()
+   }
+   
+   type user struct {
+   	name  string
+   	email string
+   }
+   
+   func (u *user) notify() {
+   	fmt.Printf("Sending user email to %s<%s>\n",
+   		u.name,
+   		u.email)
+   }
+   
+   type admin struct {
+   	name  string
+   	email string
+   }
+   
+   func (a *admin) notify() {
+   	fmt.Printf("Sending admin email to %s<%s>\n",
+   		a.name,
+   		a.email)
+   }
+   
+   func main() {
+   	bill := user{"Bill", "bill@email.com"}
+   	sendNotification(&bill)
+   
+   	lisa := admin{"Lisa", "lisa@email.com"}
+   	sendNotification(&lisa)
+   }
+   
+   // 对于实现了该接口的不同类型，可能会有不同的行为
+   func sendNotification(n notifier) {
+   	n.notify()
+   }
+   
+   ```
+
+3. `type embedding` 内部类型的方法可以直接被外部类型调用
+
+   ```go
+   type user struct {
+   	name  string
+   	email string
+   }
+   
+   func (u *user) notify() {
+   	fmt.Printf("Sending user email to %s<%s>\n",
+   		u.name,
+   		u.email)
+   }
+   
+   type admin struct {
+   	user  // Embedded Type
+   	level string
+   }
+   
+   func main() {
+   	ad := admin{
+   		user: user{
+   			name:  "john smith",
+   			email: "john@yahoo.com",
+   		},
+   		level: "super",
+   	}
+   
+   	ad.user.notify()
+   
+   	// 直接调用内部类型的方法
+   	ad.notify()
+   }
+   
+   ```
+
+4. 由于内部类型的提升，内部类型实现的接口会自动提升到外部类型。
+
+   ```go
+   type notifier interface {
+   	notify()
+   }
+   
+   type user struct {
+   	name  string
+   	email string
+   }
+   
+   func (u *user) notify() {
+   	fmt.Printf("Sending user email to %s<%s>\n",
+   		u.name,
+   		u.email)
+   }
+   
+   type admin struct {
+   	user
+   	level string
+   }
+   
+   func main() {
+   	ad := admin{
+   		user: user{
+   			name:  "john smith",
+   			email: "john@yahoo.com",
+   		},
+   		level: "super",
+   	}
+   
+   	// 内部类型user实现了notifier接口，外部类型可以直接用
+   	sendNotification(&ad)
+   }
+   
+   func sendNotification(n notifier) {
+   	n.notify()
+   }
+   
+   ```
+
+5. 假如外部类型也实现了接口，那么内部类型就不会被提升。
+
+6. 当一个标识符的名字以小写字母开头时,这个标识符就是未公开的,即包外的代码不可见。如果一个标识符以大写字母开头,这个标识符就是公开的,即被包外的代码可见。
+
+7. 利用内部类型的标识符提升到外部类型这条规则，我们可以这样写代码
+
+   ```go
+   // entities/entities.go
+   package entities
+   
+   type user struct {
+   	Name  string
+   	Email string
+   }
+   
+   type Admin struct {
+   	user   // The embedded type is unexported.
+   	Rights int
+   }
+   
+   // main/main.go
+   package main
+   
+   import (
+   	"entities"
+   	"fmt"
+   )
+   
+   func main() {
+   	a := entities.Admin{
+   		Rights: 10,
+   	}
+   
+   	// 虽然user对外不可见，但是由于内部类型提升，所以Name和Email可被直接访问
+   	a.Name = "Bill"
+   	a.Email = "bill@email.com"
+   
+   	fmt.Printf("User: %v\n", a)
+   }
+   ```
+
+8.  嵌入类型提供了扩展类型的能力，而无需使用继承。
