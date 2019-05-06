@@ -273,3 +273,247 @@
 学了几个标准库：log, encoding/json, io
 
 “应该花时间看一下标准库提供了什么，以及它是如何实现的——不仅要防止重新造轮子，还要理解Go语言的设计者的习惯，并将这些习惯应用到自己的包和API的设计上”。
+
+# ch9 测试和性能
+
+测试文件需要以`_test.go`结尾，用`go test`命令来测试。
+
+基础单元测试例子
+
+```go
+// Sample test to show how to write a basic unit test.
+package listing01
+
+import (
+	"net/http"
+	"testing"
+)
+
+const checkMark = "\u2713"
+const ballotX = "\u2717"
+
+// TestDownload validates the http Get function can download content.
+func TestDownload(t *testing.T) {
+	url := "https://www.google.com"
+	statusCode := 200
+
+	t.Log("Given the need to test downloading content.")
+	{
+		t.Logf("\tWhen checking \"%s\" for status code \"%d\"",
+			url, statusCode)
+		{
+			resp, err := http.Get(url)
+			if err != nil {
+				t.Fatal("\t\tShould be able to make the Get call.",
+					ballotX, err)
+			}
+			t.Log("\t\tShould be able to make the Get call.",
+				checkMark)
+
+			defer resp.Body.Close()
+
+			if resp.StatusCode == statusCode {
+				t.Logf("\t\tShould receive a \"%d\" status. %v",
+					statusCode, checkMark)
+			} else {
+				t.Errorf("\t\tShould receive a \"%d\" status. %v %v",
+					statusCode, ballotX, resp.StatusCode)
+			}
+		}
+	}
+}
+
+```
+
+
+
+表组测试，顾名思义，进行多组数据的测试
+
+例子
+
+```go
+// Sample test to show how to write a basic unit table test.
+package listing08
+
+import (
+	"net/http"
+	"testing"
+)
+
+const checkMark = "\u2713"
+const ballotX = "\u2717"
+
+// TestDownload validates the http Get function can download
+// content and handles different status conditions properly.
+func TestDownload(t *testing.T) {
+	var urls = []struct {
+		url        string
+		statusCode int
+	}{
+		{
+			"http://www.goinggo.net/feeds/posts/default?alt=rss",
+			http.StatusOK,
+		},
+		{
+			"http://rss.cnn.com/rss/cnn_topstbadurl.rss",
+			http.StatusNotFound,
+		},
+	}
+
+	t.Log("Given the need to test downloading different content.")
+	{
+		for _, u := range urls {
+			t.Logf("\tWhen checking \"%s\" for status code \"%d\"",
+				u.url, u.statusCode)
+			{
+				resp, err := http.Get(u.url)
+				if err != nil {
+					t.Fatal("\t\tShould be able to Get the url.",
+						ballotX, err)
+				}
+				t.Log("\t\tShould be able to Get the url.",
+					checkMark)
+
+				defer resp.Body.Close()
+
+				if resp.StatusCode == u.statusCode {
+					t.Logf("\t\tShould have a \"%d\" status. %v",
+						u.statusCode, checkMark)
+				} else {
+					t.Errorf("\t\tShould have a \"%d\" status. %v %v",
+						u.statusCode, ballotX, resp.StatusCode)
+				}
+			}
+		}
+	}
+}
+```
+
+
+
+模仿调用，用于模拟服务器，从而达到离线测试的目的
+
+```go
+// Sample test to show how to mock an HTTP GET call internally.
+// Differs slightly from the book to show more.
+package listing12
+
+import (
+	"encoding/xml"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+const checkMark = "\u2713"
+const ballotX = "\u2717"
+
+// feed is mocking the XML document we except to receive.
+var feed = `<?xml version="1.0" encoding="UTF-8"?>
+<rss>
+<channel>
+    <title>Going Go Programming</title>
+    <description>Golang : https://github.com/goinggo</description>
+    <link>http://www.goinggo.net/</link>
+    <item>
+        <pubDate>Sun, 15 Mar 2015 15:04:00 +0000</pubDate>
+        <title>Object Oriented Programming Mechanics</title>
+        <description>Go is an object oriented language.</description>
+        <link>http://www.goinggo.net/2015/03/object-oriented</link>
+    </item>
+</channel>
+</rss>`
+
+// mockServer returns a pointer to a server to handle the get call.
+func mockServer() *httptest.Server {
+	f := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		w.Header().Set("Content-Type", "application/xml")
+		fmt.Fprintln(w, feed)
+	}
+
+	return httptest.NewServer(http.HandlerFunc(f))
+}
+
+// TestDownload validates the http Get function can download content
+// and the content can be unmarshaled and clean.
+func TestDownload(t *testing.T) {
+	statusCode := http.StatusOK
+
+	server := mockServer()
+	defer server.Close()
+
+	t.Log("Given the need to test downloading content.")
+	{
+		t.Logf("\tWhen checking \"%s\" for status code \"%d\"",
+			server.URL, statusCode)
+		{
+			resp, err := http.Get(server.URL)
+			if err != nil {
+				t.Fatal("\t\tShould be able to make the Get call.",
+					ballotX, err)
+			}
+			t.Log("\t\tShould be able to make the Get call.",
+				checkMark)
+
+			defer resp.Body.Close()
+
+			if resp.StatusCode != statusCode {
+				t.Fatalf("\t\tShould receive a \"%d\" status. %v %v",
+					statusCode, ballotX, resp.StatusCode)
+			}
+			t.Logf("\t\tShould receive a \"%d\" status. %v",
+				statusCode, checkMark)
+
+			var d Document
+			if err := xml.NewDecoder(resp.Body).Decode(&d); err != nil {
+				t.Fatal("\t\tShould be able to unmarshal the response.",
+					ballotX, err)
+			}
+			t.Log("\t\tShould be able to unmarshal the response.",
+				checkMark)
+
+			if len(d.Channel.Items) == 1 {
+				t.Log("\t\tShould have \"1\" item in the feed.",
+					checkMark)
+			} else {
+				t.Error("\t\tShould have \"1\" item in the feed.",
+					ballotX, len(d.Channel.Items))
+			}
+		}
+	}
+}
+
+// Item defines the fields associated with the item tag in
+// the buoy RSS document.
+type Item struct {
+	XMLName     xml.Name `xml:"item"`
+	Title       string   `xml:"title"`
+	Description string   `xml:"description"`
+	Link        string   `xml:"link"`
+}
+
+// Channel defines the fields associated with the channel tag in
+// the buoy RSS document.
+type Channel struct {
+	XMLName     xml.Name `xml:"channel"`
+	Title       string   `xml:"title"`
+	Description string   `xml:"description"`
+	Link        string   `xml:"link"`
+	PubDate     string   `xml:"pubDate"`
+	Items       []Item   `xml:"item"`
+}
+
+// Document defines the fields associated with the buoy RSS document.
+type Document struct {
+	XMLName xml.Name `xml:"rss"`
+	Channel Channel  `xml:"channel"`
+	URI     string
+}
+
+```
+
+可以根据规则写一些示例，然后在包的文档里显示。
+
+基准测试。
