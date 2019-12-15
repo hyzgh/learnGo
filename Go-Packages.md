@@ -1,6 +1,103 @@
-# 常用packages
+# builtin
 
-## bytes
+描述了内置的基本数据类型、常量、函数。
+
+需要记忆的点：
+
+- `string`类型是一成不变的
+- `complex64`的实数部分和虚数部分是`float32`；`complex128`的实数部分和虚数部分是`float64`
+- `int`, `uint`至少为32bit
+- `uintptr`是个整数类型，可存储任意指针
+- `byte`是`uint8`的alias
+- `rune`是`int32`的alias
+- `iota`是常量0，可用于优雅地申明数列
+- `nil`是pointer, channel, func, interface, map, slice type的零值
+
+```go
+// 用于往slice添加元素
+// 假如切片容量足够容纳新增元素，则reslice
+// 否则，会allocate一块新的内存区域
+func append(slice []Type, elems ...Type) []Type
+// 教科书用法
+slice = append(slice, elem1, elem2)
+slice = append(slice, anotherSlice...)
+
+// 用于copy slice的元素
+// 若dst和src重叠，则src会覆盖dst
+// 返回值为复制的元素个数，等于min(len(src), len(dst))，注意不是cap
+func copy(dst, src []Type) int
+
+// 用于删除map中的key
+// 若m为nil或key不存在，则不操作，不会panic
+func delete(m map[Type]Type1, key Type)
+
+// 用于得到某些数据结构的长度
+// 包括array, pointer to array, slice, map, string, channel
+// 若传入nil，则返回0，不会panic
+func len(v Type) int
+
+// 用于得到某些数据结构的容量
+// 包括array, pointer to array, slice, channel
+// 若传入nil, 则返回0，不会panic
+func cap(v Type) int
+
+// 用于slice, map, chan，且只适用于这三种类型
+// 用于为其分配内存并初始化，并返回一个非指针的对象
+// map可传入size，但可能会被忽略
+// channel传入size，表示buffer的size
+func make(t Type, size ...IntegerType) Type
+
+// 用于任意类型
+// 用于为其分配内存并初始化，并返回一个指向对象指针
+func new(Type) *Type
+
+// 用于构造一个复数
+func complex(r, i FloatType) ComplexType
+// 返回复数的实数部分
+func real(c ComplexType) FloatType
+// 返回复数的虚数部分
+func imag(c ComplexType) FloatType
+
+// 用于关闭channel，要求channel必须是发送方
+// 获取channel中的内容：
+// x, ok := <- c
+// 若channel中的元素未被取完，则ok为true
+// 若已被取完，则ok为false，且x为零值
+func close(c chan<- Type)
+
+// 用于终止程序
+// panic后会立即结束当前函数的执行，接着执行defer语句
+// 会递归着panic上层的函数，直到顶层，除非被recover了
+// 入参用于传递panic的信息
+// panic(nil)也是会panic，但不建议这么写，因为nil表示没有错误，有歧义
+func panic(v interface{})
+
+// 用于恢复程序
+// panic后可用recover来恢复执行
+// 多次recover会得到nil
+// 需要写在defer中，且不能直接defer recover()
+// 教科书写法：
+// defer func() {
+//     recover()
+// }
+// panic()
+func recover() interface{}
+
+
+// 用于调试，输出信息到stderr
+// 该函数不保证在后续版本一定存在
+func print(args ...Type)
+func println(args ...Type)
+
+// 用于表示错误
+type error interface {
+	Error() string
+}
+```
+
+
+
+# bytes
 
 bytes库主要包括两个类和五类函数。
 
@@ -39,13 +136,46 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error)
 
 
 
-## compress/gzip
+# compress/gzip
+
+```go
+// 用gzip压缩及解压内容
+var buf bytes.Buffer
+zw := gzip.NewWriter(&buf)
+
+// Setting the Header fields is optional.
+zw.Name = "a-new-hope.txt"
+zw.Comment = "an epic space opera by George Lucas"
+zw.ModTime = time.Date(1977, time.May, 25, 0, 0, 0, 0, time.UTC)
+
+_, err := zw.Write([]byte("A long time ago in a galaxy far, far away..."))
+if err != nil {
+	log.Fatal(err)
+}
+
+if err := zw.Close(); err != nil {
+	log.Fatal(err)
+}
+
+zr, err := gzip.NewReader(&buf)
+if err != nil {
+	log.Fatal(err)
+}
+
+fmt.Printf("Name: %s\nComment: %s\nModTime: %s\n\n", zr.Name, zr.Comment, zr.ModTime.UTC())
+
+if _, err := io.Copy(os.Stdout, zr); err != nil {
+	log.Fatal(err)
+}
+
+if err := zr.Close(); err != nil {
+	log.Fatal(err)
+}
+```
 
 
 
-
-
-## context
+# context
 
 ```go
 /* 
@@ -143,13 +273,13 @@ func FromContext(ctx context.Context) (net.IP, bool) {
 
 
 
-## flag
+# flag
 
 参考官方文档。
 
 
 
-## fmt
+# fmt
 
 `Printf`
 
@@ -202,7 +332,11 @@ fmt.Printf("%v\n", t)
 
 
 
-## image
+
+
+
+
+# image
 
 ```go
 // 查看图片的分辨率, 类型
@@ -211,11 +345,14 @@ if err != nil {
 	log.Fatal(err)
 }
 fmt.Println("Width:", config.Width, "Height:", config.Height, "Format:", format)
+
+
+// 读取图片的内容
 ```
 
 
 
-## io
+# io
 
 ```go
 
@@ -223,7 +360,7 @@ fmt.Println("Width:", config.Width, "Height:", config.Height, "Format:", format)
 
 
 
-## io/ioutil
+# io/ioutil
 
 ```go
 1. 创建一个临时目录
@@ -238,13 +375,13 @@ func ReadAll(r io.Reader) ([]byte, error)
 
 
 
-## log
+# log
 
 会将内容输出到stderr，且会增加一些信息（如日期时间）。
 
 
 
-## net/http
+# net/http
 
 ```go
 // 发送请求
@@ -259,7 +396,7 @@ func (r *Request) WithContext(ctx context.Context) *Request
 
 
 
-## json
+# json
 
 注意只有当结构体内的成员是公开时，才能在Marshal的时候被识别，成为json文件的一部分。
 
@@ -322,11 +459,33 @@ for {
     log.Println(err)
   }
 }
+
+
+// 格式化输出，带缩进
+type Road struct {
+	Name   string
+	Number int
+}
+roads := []Road{
+	{"Diamond Fork", 29},
+	{"Sheep Creek", 51},
+}
+
+b, err := json.Marshal(roads)
+if err != nil {
+	log.Fatal(err)
+}
+
+var out bytes.Buffer
+json.Indent(&out, b, "=", "\t")
+out.WriteTo(os.Stdout)
+
+
 ```
 
 
 
-## path/filepath
+# path/filepath
 
 和路径操作相关的包。
 
@@ -390,7 +549,7 @@ func Join(elem ...string) string
 
 
 
-## pprof
+# pprof
 
 ```go
 var cpuprofile = flag.String("cpu", "cpu", "write cpu profile to file")
@@ -425,7 +584,7 @@ func main() {
 
 
 
-## strings
+# strings
 
 ```go
 1. 在母串中从后往前找子串
@@ -440,7 +599,7 @@ func LastIndexByte(s string, c byte) int
 
 
 
-## sync
+# sync
 
 ```go
 // 用于只执行一次某个函数
@@ -457,7 +616,7 @@ func (m *Mutex) Unlock()
 
 
 
-## sync/atomic
+# sync/atomic
 
 ```go
 // 底层硬件支持的原子操作
@@ -471,7 +630,7 @@ Swap
 
 
 
-## testing
+# testing
 
 `testing.T` 普通测试
 
@@ -481,8 +640,9 @@ Swap
 
 
 
-## time
+# time
 
 ```bash
 
 ```
+
