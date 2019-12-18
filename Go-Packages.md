@@ -97,6 +97,161 @@ type error interface {
 
 
 
+# bufio
+
+`bufio`包是对基本I/O包的包装，实现了带缓存的I/O，并对文本的扫描提供了一些帮助。
+
+主要实现了三个类，Reader, Writer, Scanner。
+
+```go
+// 创建一个带buffer的Reader，并指定buffer的size
+func NewReaderSize(rd io.Reader, size int) *Reader
+
+// 创建一个带buffer的Reader，buffer大小为默认值4K
+func NewReader(rd io.Reader) *Reader
+
+// 获取buffer的size
+func (b *Reader) Size() int
+
+// 更改Reader的底层Reader
+func (b *Reader) Reset(r io.Reader)
+
+// 读取n个byte，且不会移动Reader的读取位置
+// 注意在下次Read后，返回的字节数组不应再次被访问
+// 假如读取的byte少于n，则err不为nil
+// 假如buffered的byte少于n，则err为io.EOF
+// 假如n大于buffer的size，则err为bufio.ErrBufferFull
+func (b *Reader) Peek(n int) ([]byte, error)
+
+// 跳过n个byte
+// 假如跳过的byte少于n，则err不为nil
+// 假如buffered的byte少于n，则err为io.EOF
+func (b *Reader) Discard(n int) (discarded int, err error)
+
+// 读取byte到p中，读取的个数取决于buffer的字节数以及p的len
+// 返回的n表示读取的字节数
+// 若发现数据已经读完，则err会返回EOF
+func (b *Reader) Read(p []byte) (n int, err error)
+
+// 读取一个byte
+func (b *Reader) ReadByte() (byte, error)
+
+// 撤销读取一个byte的操作
+// 要求上次操作是ReadByte()
+func (b *Reader) UnreadByte() error
+
+// 读取一个rune
+// 假如是非法rune，则会读取一个byte，并返回unicode.ReplacementChar
+func (b *Reader) ReadRune() (r rune, size int, err error)
+
+// 撤销读取一个rune的操作
+// 要求上一次操作是ReadRune()
+func (b *Reader) UnreadRune() error
+
+// 返回当前可以从buffer中读取的字节数
+func (b *Reader) Buffered() int
+
+// 读取字节，直到delim字符，返回包括delim字符的字符数组
+// 假如不包含delim字符，会报错
+// 在下次Read后，返回的line会失效，若要不失效，用ReadBytes和ReadString
+func (b *Reader) ReadSlice(delim byte) (line []byte, err error)
+
+// 读取一行
+// 假如返回的isPrefix为true，表示还没读完一整行
+// 在下次Read后，会失效
+func (b *Reader) ReadLine() (line []byte, isPrefix bool, err error)
+
+// 读取字节，直到delim字符，返回包括delim字符的字符数组
+// 假如不包含delim字符，会报错
+func (b *Reader) ReadBytes(delim byte) ([]byte, error)
+
+// 是对ReadBytes()的包装，返回string
+func (b *Reader) ReadString(delim byte) (string, error)
+
+// 实现了io.WriteTo接口
+// 可能会读多次底层Reader
+// 若底层Reader已实现io.WriteTo，则会直接调用而不做buffer
+func (b *Reader) WriteTo(w io.Writer) (n int64, err error)
+
+// 创建一个带buffer的writer
+func NewWriterSize(w io.Writer, size int) *Writer
+
+// 创建一个带buffer的writer，且buffer大小为默认值
+func NewWriter(w io.Writer) *Writer
+
+// 返回buffer的大小
+func (b *Writer) Size() int
+
+// 更改底层的writer，会忽略已buffer的内容及error
+func (b *Writer) Reset(w io.Writer)
+
+// 将buffer的中的内容输出到底层writer中
+func (b *Writer) Flush() error
+
+// 返回buffer的剩余空间
+func (b *Writer) Available() int
+
+// 返回已buffer的内容大小
+func (b *Writer) Buffered() int
+
+// 写内容到buffer中
+func (b *Writer) Write(p []byte) (nn int, err error)
+
+// 写一个byte到buffer中
+func (b *Writer) WriteByte(c byte) error
+
+// 写一个Rune到buffer中
+func (b *Writer) WriteRune(r rune) (size int, err error)
+
+// 写一个string到buffer中
+func (b *Writer) WriteString(s string) (int, error)
+
+// 从Reader读取内容到Writer中
+func (b *Writer) ReadFrom(r io.Reader) (n int64, err error)
+
+// 创建一个带buffer的Reader与Writer
+// 注意入参是*bufio.Reader及*bufio.Writer
+func NewReadWriter(r *Reader, w *Writer) *ReadWriter
+
+// 创建一个scanner
+func NewScanner(r io.Reader) *Scanner
+
+// 返回非EOF的error
+func (s *Scanner) Err() error
+
+// 返回最近一次扫描得到的token，字符数组
+func (s *Scanner) Bytes() []byte
+
+// 返回最近一次扫描得到的token，字符串
+func (s *Scanner) Text() string
+
+// 扫描下一个token
+// 假如扫描终止，会得到false，可通过Err()查看错误
+func (s *Scanner) Scan() bool
+
+// 自定义buffer的大小
+// 入参为初始的buffer大小以及在scan过程可重新分配的buffer最大大小
+// 不可在scan后调用该方法
+func (s *Scanner) Buffer(buf []byte, max int)
+
+// 设置SplitFunc，用以分隔token
+func (s *Scanner) Split(split SplitFunc)
+
+// SplitFunc，扫描获取单个byte
+func ScanBytes(data []byte, atEOF bool) (advance int, token []byte, err error)
+
+// SplitFunc，扫描获取单个rune
+func ScanRunes(data []byte, atEOF bool) (advance int, token []byte, err error)
+
+// SplitFunc，扫描获取单个行
+func ScanLines(data []byte, atEOF bool) (advance int, token []byte, err error)
+
+// SplitFunc，扫描获取单个单词，空格的定义为unicode.IsSpace()
+func ScanWords(data []byte, atEOF bool) (advance int, token []byte, err error)
+```
+
+
+
 # bytes
 
 bytes库主要包括两个类和五类函数。
