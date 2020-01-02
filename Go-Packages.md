@@ -632,7 +632,6 @@ if err == nil {
   }
 }
 
-
 // 若将结构体的成员设置为指针类型，则若json不存在相应的字段，则为nil
 type IncomingMessage struct {
   Cmd *Command
@@ -680,6 +679,90 @@ out.WriteTo(os.Stdout)
 
 
 ```
+
+
+
+**unmarshal**
+
+**unmarshal**
+
+```go
+// 用于解析json格式的数据，存储到Go的数据结构中
+// 假如v为空或者不是指针，返回InvalidUnmarshalError
+func Unmarshal(data []byte, v interface{}) error
+
+```
+
+
+
+假如Unmarshal时不知道json的内容，因为json顶层是一个object，所以可以Unmarshal到一个map中。
+
+若json的数据数据结构转为interface{}时，有以下类型转化关系：
+
+| json     | go                     |
+| -------- | ---------------------- |
+| booleans | bool                   |
+| numbers  | float64                |
+| strings  | string                 |
+| arrays   | []interface{}          |
+| objcets  | map[string]interface{} |
+| null     | nil                    |
+
+unmarshal到map[string]interface{}的具体用法：
+
+```go
+b := []byte(`{"Name":"Wednesday","Age":6,"Parents":["Gomez","Morticia"]}`)
+var f interface{}
+err := json.Unmarshal(b, &f)
+if err == nil {
+  m := f.(map[string]interface{})
+  for k, v := range m {
+    switch vv := v.(type) {
+      case string:
+      fmt.Println(k, "is string", vv)
+      case float64:
+      fmt.Println(k, "is float64", vv)
+      case []interface{}:
+      fmt.Println(k, "is an array:")
+      for i, u := range vv {
+        fmt.Println(i, u)
+      }
+      default:
+      fmt.Println(k, "is of a type I don't know how to handle")
+    }
+  }
+}
+```
+
+
+
+假如已经知道json的内容，可将其Unmarshal到一个struct中。
+
+json object转化为go struct时，字段需要找到目的地，有以下寻址规则：优先寻找json tag的字段，其次寻找完全匹配的字段，再其次忽略大小写寻找匹配的字段。如果寻址不到，则该字段被忽略（假如不想忽略，可参考Decoder.DisallowUnknownFields）。
+
+找到目的地后，不同的数据结构有不同的Unmarshal规则，内置类型的规则如下：
+
+| json的数据结构 | Go的数据结构                     | 规则                                                         |
+| -------------- | -------------------------------- | ------------------------------------------------------------ |
+| booleans       | bool                             |                                                              |
+| numbers        | numeric types(excluding complex) | 当溢出时，会继续Unmarshal，返回UnmarshalTypeError描述出现的第一个错误 |
+| string         | string                           | 当解析quoted string时，非法UTF-8或者UTF-16并不会报错，而是把它们置为U+FFFD |
+| array          | slice                            | 将slice的长度设置为0，然后一个个添加到slice中。              |
+| array          | array                            | 若go array的长度比json array短，则会截断。若go array的长度比json array长，则会置零值。 |
+| object         | map                              | 若map为nil，则会自动new。若map不为nil，则保留已有的键值对，然后将object中的键值对存储到其中。要求map的键为int, string或实现了encoding.TextUnmarshaler。 |
+| nil            | null                             |                                                              |
+|                | pointer                          | 若json为null，则go为nil。否则，说明有内容可以解析，若go中指针不为nil，则直接解析，否则会自动new再解析。 |
+|                |                                  |                                                              |
+
+
+
+可自定义Unmarshal规则，具体如下：
+
+如果实现了Unmarshaler，则会调用它的UnmarshalJson方法，即使json的值为null。
+
+如果实现了encoding.TextUnmarshaler，且json的值为quoted string，则会调用UnmarshalText方法，传入一个unquoted string。
+
+
 
 
 
@@ -788,6 +871,144 @@ func main() {
 // 给slice排序，自定义规则
 sort.Slice(nodes, func(i, j int) bool)
 ```
+
+
+
+# strconv
+
+用于字符串的转化，这个包含有一堆函数，这些函数可以分成以下几类：
+
+- 将bool, float, int, uint 转化为string，函数前缀为Format或Append
+- 将string转化为bool, float, int, uint，函数前缀为Parse
+- 将string转化为string，函数前缀为Quote
+- 其他函数，为了方便使用而做的封装，如Atoi, Itoa
+
+
+
+这里有一个quote的概念需要理解，有以下几种情况：
+
+- string转string(quote)：反转义控制字符、被IsPrint定义的不可打印字符
+- string转string(ASCII)：反转义控制字符、被IsPrint定义的不可打印字符、非ASCII字符
+- string转string(graphic)：反转义控制字符、被IsGraphic定义的不可打印字符、非ASCII字符
+
+
+
+简短说明：
+
+```go
+// 往dst添加bool对应的字符数组
+func AppendBool(dst []byte, b bool) []byte
+
+// 往dst添加float对应的字符数组, prec指定小数位数, bitSize指定float的位度
+func AppendFloat(dst []byte, f float64, fmt byte, prec, bitSize int) []byte
+
+// 往dst添加string对应的字符数组，且前后有双引号"
+func AppendQuote(dst []byte, s string) []byte
+
+// 往dst添加一个rune对应的字符数组，且前后有单引号'
+func AppendQuoteRune(dst []byte, r rune) []byte
+
+// 往dst添加一个rune对应的string(ASCII)
+func AppendQuoteRuneToASCII(dst []byte, r rune) []byte
+
+// 往dst添加一个rune对应的string(grahphic)
+func AppendQuoteRuneToGraphic(dst []byte, r rune) []byte
+
+// 往dst添加string对应的string(ASCII)
+func AppendQuoteToASCII(dst []byte, s string) []byte
+
+// 往dst添加string对应的string(graphic)
+func AppendQuoteToGraphic(dst []byte, s string) []byte
+
+// 往dst添加unit对应的字符数组，base表示进制
+func AppendUint(dst []byte, i uint64, base int) []byte
+
+// string转int，等价于ParseInt(s, 10, 0)
+func Atoi(s string) (int, error)
+
+// 判断string能否Unquote，规则见源码
+func CanBackquote(s string) bool
+
+// bool转string
+func FormatBool(b bool) string
+
+// float转string，fmt表示形式，prec表示小数位数，bitSize表示float位数
+func FormatFloat(f float64, fmt byte, prec, bitSize int) string
+
+// int转string，base表示进制
+func FormatInt(i int64, base int) string
+
+// uint转string，base表示进制
+func FormatUint(i uint64, base int) string
+
+// 判断是否是Graghpic字符
+func IsGraphic(r rune) bool
+
+// 判断是否是可打印字符
+func IsPrint(r rune) bool
+
+// int转string，等价于FormatInt(int64(i), 10)
+func Itoa(i int) string
+
+// string转bool
+func ParseBool(str string) (bool, error)
+
+// string转float
+func ParseFloat(s string, bitSize int) (float64, error)
+
+// string转int
+func ParseInt(s string, base int, bitSize int) (i int64, err error)
+
+// string转uint
+func ParseUint(s string, base int, bitSize int) (uint64, error)
+
+// string转string(quote)，所谓quote，是指加个双引号且对引号内的控制字符及不可打印字符进行转移
+func Quote(s string) string
+
+// rune转string(quote)
+func QuoteRune(r rune) string
+
+// rune转string(ASCII)，即被定义为IsPrint的非ASCII字符需要进行反转义，比如'☺'转成'\u263a'
+func QuoteRuneToASCII(r rune) string
+
+// rune转string(graphic)，即被定义为Grahpic的非ASCII字符需要进行反转义
+func QuoteRuneToGraphic(r rune) string
+
+// string(quote)转string(ASCII)
+func QuoteToASCII(s string) string
+
+// string(quote)转string(ASCII)
+func QuoteToGraphic(s string) string
+
+// string(quote)转string，进行转义，比如'\u263a'转成"☺"
+func Unquote(s string) (string, error)
+
+// 解析出第一个quote，一般是双引号"
+func UnquoteChar(s string, quote byte) (value rune, multibyte bool, tail string, err error)
+```
+
+
+
+源码批注：
+
+- IsPrint和IsGraphic是本地实现的，功能和unicode的是一致的。之所以不用unicode包，是因为这样不依赖于unicode并因此不需要拉取所有的unicode tables，减少了不必要的链接。
+- `const intSize = 32 << (^uint(0) >> 63)` 获取`int`的位数，32位或者64位
+
+- 良好的代码风格：
+
+	```go
+	// &&的优先级高于||，当有&&与||混用的情况时，分开多行写可读性会更好
+	if intSize == 32 && (0 < sLen && sLen < 10) ||
+		intSize == 64 && (0 < sLen && sLen < 19) {
+	    doSomething();
+	}
+	```
+
+	
+
+- 
+
+
 
 
 
