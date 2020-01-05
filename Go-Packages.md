@@ -550,6 +550,14 @@ fmt.Println("Width:", config.Width, "Height:", config.Height, "Format:", format)
 
 
 
+## image/jpeg
+
+
+
+## image/png
+
+
+
 # io
 
 ```go
@@ -576,6 +584,11 @@ func ReadAll(r io.Reader) ([]byte, error)
 # log
 
 会将内容输出到stderr，且会增加一些信息（如日期时间）。
+
+```go
+// 输出行号以及文件名
+log.SetFlags(log.LstdFlags | log.Lshortfile)
+```
 
 
 
@@ -764,9 +777,46 @@ json object转化为go struct时，字段需要找到目的地，有以下寻址
 
 
 
+# path
+
+用于处理正斜杆拆分的路径，不适用于反斜杠拆分的路径。假如要处理反斜杠拆分的路径，使用path/filepath。
+
+```go
+// 返回路径的最后一个元素
+func Base(path string) string
+
+// 返回最短的等价路径，实现用了词法分析
+func Clean(path string) string
+
+// 返回路径目录，即除了最后一个元素外的路径
+func Dir(path string) string
+
+// 返回文件拓展名
+func Ext(path string) string
+
+// 判断是否是绝对路径
+func IsAbs(path string) bool
+
+// 连接路径，并最简
+func Join(elem ...string) string
+
+// 判断文件名是否与通配符匹配
+func Match(pattern, name string) (matched bool, err error)
+
+// 将path分成dir+file
+func Split(path string) (dir, file string)
+```
+
+源码批注：
+
+- Match函数的实现占据了path包过半的代码，它具体是怎么实现的？
+- Clean是怎么实现的？
 
 
-# path/filepath
+
+
+
+## path/filepath
 
 和路径操作相关的包。
 
@@ -825,6 +875,9 @@ func IsAbs(path string) bool
 8. 将多个元素连接起来，生成一个路径
 func Join(elem ...string) string
 
+9. 遍历目录
+func Walk(root string, walkFn WalkFunc) error
+type WalkFunc func(path string, info os.FileInfo, err error) error
 
 ```
 
