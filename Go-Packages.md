@@ -471,6 +471,27 @@ func FromContext(ctx context.Context) (net.IP, bool) {
 
 
 
+# cropto
+
+## sha256
+
+```go
+package main
+
+import (
+	"crypto/sha256"
+	"fmt"
+)
+
+func main() {
+	h := sha256.New()
+	h.Write([]byte("hello world\n"))
+	fmt.Printf("%x", h.Sum(nil))
+}
+```
+
+
+
 # flag
 
 参考官方文档。
@@ -918,11 +939,137 @@ func main() {
 
 
 
+# reflect
+
+## rerlect三条定律
+
+参考：https://blog.golang.org/laws-of-reflection
+
+反射用于在运行阶段获取某些值的数据结构，是元编程的一部分。许多编程语言的反射模型是不同的，有的甚至不支持。因此，这里的反射指的是Go的反射模型，或许不能通用到其他语言。
+
+有两个核心概念，types和interfaces。
+
+Go是静态语言，在编译时，每个值都有固定的type。另外，对于不同类型的值，即使底层类型一致，也都需要显式类型转化才可以。比较特殊的一种type是interface，只要某个值实现了这个interface定义的方法集合，就可以存储它。虽然interface可以存储不同type的值，但这不违反静态语言的特性，因为申明为interface的值的类型是interface，这个值的类型是固定的。空接口可以存储所有的值。
+
+反射和interface密切相关，必须理解好type和interface这两个概念。
+
+一个interface的变量，会存储两个东西，(value, concrete type)，而不是(value, interface type)。注意将interface变量复制给interface时，它存储的仍是(value, concrete type)，而不存储这个interface的相关信息。
+
+给一个interface赋值的时候，分两种情况，一种是具体变量，另一种是interface变量。对于具体变量，会检查这个变量是否实现了这个interface，因此不需要断言。对于interface变量，会检查interface type，假如有父集关系，不需要断言，假如没有就需要断言。因此，不管是具体变量还是interface变量，都可以直接赋值给空接口。例子：
+
+```go
+// os.OpenFile返回的是struct，属于普通变量，可以直接复制给io.Reader，不需要断言
+// io.Reader赋值给io.Writer，在赋值时候右边的类型是io.Reader，没有父集关系，需要断言
+var r io.Reader
+tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+if err != nil {
+    return nil, err
+}
+r = tty
+var w io.Writer
+w = r.(io.Writer)
+
+// io.ReadWriter复制给io.Writer，在赋值时候右边的类型是io.ReadWriter，有父集关系，不需要断言
+var r io.ReadWriter
+tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+if err != nil {
+    return nil, err
+}
+r = tty
+var w io.Writer
+w = r.(io.Writer)
+```
+
+第一条定律。从interface变成反射对象的反射。反射对象指Type和Value，反射对象的具体方法参考package。反射对象有很多方法。第一，为了简化API，getter和setter只设置了最大的数据类型，比如对于所有带符号数字，会使用int64。第二，对于自定义类型，Kind方法会返回它的底层类型。比如type MyInt int会返回int，而不是MyInt。
+
+第二条定律。从反射对象到interface的反射。通过`func (v Value) Interface() interface{}`可以封包，得到原来的interface。封包是解包的逆过程。**对于fmt.Println等函数，封包解包都能输出正确的值，但这是Println做的手脚，有待研究它动了什么手脚。**
+
+第三条定律。修改一个反射对象的前提，是它的值可以被设置。是否可以设置值是Value的一个属性，假如对一个不可以设置值的Value调用Set方法，会panic。假如反射对象是由指针转化而来的，那么是可以修改的，否则它是一个拷贝，通过set方法不会修改到原来的值，我们认为是没有意义的，因此不允许修改。
+
+
+
+## reflect package
+
+有两个主要类型，Type和Value。Type可以通过reflect.TypeOf(x)得到，Value可以通过reflect.ValueOf(x)得到。另外，Value有通过Type()方法可以得到Type。
+
+```go
+// Value
+// 解析interface{}，得到Value
+func ValueOf(i interface{}) Value
+
+// 得到Value，表示的是一个指向零值的指针
+func New(typ Type) Value
+
+// 假如Value存的是指针，可以通过Elem方法得到指针指向的变量，这样可以修改这个变量
+func (v Value) Elem() Value
+
+// 得到Kind，可以是Bool, Int, Float32, Ptr等
+func (v Value) Kind() Kind
+
+// 得到Type反射对象
+func (v Value) Type() Type
+
+// 得到interface{}
+func (v Value) Interface() (i interface{})
+
+// 是否可以设置值
+func (v Value) CanSet() bool
+
+// 得到struct的字段数，假如不是struct会panic
+func (v Value) NumField() int
+
+// 得到Value，struct的第i个字段，假如不是struct或越界会panic
+func (v Value) Field(i int) Value
+
+
+// Type
+// 解析interface{}，得到Type
+func TypeOf(i interface{}) Type
+
+// Type的方法，可以得到struct第i个字段的详细信息，具体看StructField
+Field(i int) StructField
+
+
+```
+
+
+
+## 常用场景
+
+### 读取并修改struct内的字段
+
+```go
+func main() {
+	t := T{23, "skidoo"}
+	s := reflect.ValueOf(&t).Elem()
+	typeOfT := s.Type()
+
+	// read
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		fmt.Printf("%d: %s %s = %v\n", i,
+			typeOfT.Field(i).Name, f.Type(), f.Interface())
+	}
+
+	// write
+	s.Field(0).SetInt(77)
+	s.Field(1).SetString("Sunset Strip")
+	fmt.Println("t is now", t)
+}
+```
+
+
+
+
+
 # sort
 
 ```go
 // 给slice排序，自定义规则
 sort.Slice(nodes, func(i, j int) bool)
+
+// 给[]int排序
+func Ints(a []int)
 ```
 
 
@@ -1120,10 +1267,4 @@ Swap
 `testing.M` 可以传参
 
 
-
-# time
-
-```bash
-
-```
 
