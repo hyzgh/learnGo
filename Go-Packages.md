@@ -651,6 +651,17 @@ Addr() Addr
 
 ## net/http
 
+数据结构：
+
+```go
+type Request struct {
+	URL *url.URL
+}
+
+```
+
+API：
+
 ```go
 // 发送请求
 func (c *Client) Do(req *Request) (*Response, error)
