@@ -180,6 +180,7 @@ slice = append(slice, anotherSlice...)
 // 用于copy slice的元素
 // 若dst和src重叠，则src会覆盖dst
 // 返回值为复制的元素个数，等于min(len(src), len(dst))，注意不是cap
+// 言外意义，假如dst的空间不够，copy不会帮忙增长空间
 func copy(dst, src []Type) int
 
 // 用于删除map中的key
@@ -582,21 +583,28 @@ fmt.Println("Width:", config.Width, "Height:", config.Height, "Format:", format)
 # io
 
 ```go
+// 从src拷贝数据到dst
+// 返回拷贝的字节数和遇到的第一个错误，若成功，返回的err为nil而不是EOF
+func Copy(dst Writer, src Reader) (written int64, err error)
+
+// 用于建立获取一个Reader，在从r读取的时候，同时往w读取，两者同时进行，没有buffer
+func TeeReader(r Reader, w Writer) Reader
+
 
 ```
 
 
 
-# io/ioutil
+## io/ioutil
 
 ```go
-1. 创建一个临时目录
+// 创建一个临时目录
 func TempDir(dir, prefix string) (name string, err error)
 
-2. 创建一个临时文件
+// 创建一个临时文件
 func TempFile(dir, pattern string) (f *os.File, err error)
 
-3. 读取文件所有内容
+// 读取文件所有内容
 func ReadAll(r io.Reader) ([]byte, error)
 ```
 
@@ -613,7 +621,35 @@ log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 
 
-# net/http
+# net
+
+```go
+// 用于建立连接，网络类型可以是TCP、UDP、IP等
+func Dial(network, address string) (Conn, error)
+
+// 用于得到address，可作为Dial的入参
+func JoinHostPort(host, port string) string
+
+// 用于将address分解得到host, post
+func SplitHostPort(hostport string) (host, port string, err error)
+
+// 得到Listener，该接口有三个方法，分别是Accept, Close, Addr
+func Listen(network, address string) (Listener, error)
+
+// 监听连接，等待下一个连接
+Accept() (Conn, error)
+
+// 关闭连接，任何阻塞的Accept操作会解锁并返回错误
+Close() error
+
+// 得到listener的网络地址
+Addr() Addr
+
+```
+
+
+
+## net/http
 
 ```go
 // 发送请求
@@ -1028,8 +1064,6 @@ func TypeOf(i interface{}) Type
 
 // Type的方法，可以得到struct第i个字段的详细信息，具体看StructField
 Field(i int) StructField
-
-
 ```
 
 
