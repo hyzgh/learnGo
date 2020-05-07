@@ -472,9 +472,20 @@ func FromContext(ctx context.Context) (net.IP, bool) {
 
 
 
-# cropto
+# crypto
 
-## sha256
+## crypto/rsa
+
+```go
+// 生成私钥
+func GenerateKey(random io.Reader, bits int) (*PrivateKey, error)
+```
+
+
+
+## crypto/sha256
+
+进行sha256加密：
 
 ```go
 package main
@@ -489,6 +500,71 @@ func main() {
 	h.Write([]byte("hello world\n"))
 	fmt.Printf("%x", h.Sum(nil))
 }
+```
+
+
+
+## crypto/x509
+
+生成数字证书：
+
+```go
+package main
+
+import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
+	"net"
+	"os"
+	"time"
+)
+
+func main() {
+	max := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, _ := rand.Int(rand.Reader, max)
+	subject := pkix.Name{
+		Organization:       []string{"Manning Publications Co."},
+		OrganizationalUnit: []string{"Books"},
+		CommonName:         "Go Web Programming",
+	}
+
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject:      subject,
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+
+	pk, _ := rsa.GenerateKey(rand.Reader, 2048)
+
+	derBytes, _ := x509.CreateCertificate(rand.Reader, &template, &template, &pk.PublicKey, pk)
+	certOut, _ := os.Create("cert.pem")
+	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	certOut.Close()
+
+	keyOut, _ := os.Create("key.pem")
+	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(pk)})
+	keyOut.Close()
+}
+```
+
+
+
+API：
+
+```go
+// 设置证书参数
+type Certificate struct
+
+// 生成证书
+func CreateCertificate(rand io.Reader, template, parent *Certificate, pub, priv interface{}) (cert []byte, err error)
 ```
 
 
@@ -664,14 +740,44 @@ Addr() Addr
 
 ## net/http
 
-数据结构：
+可以分为客户端和服务端两部分，包中的数据结构和函数有些只支持客户端或服务端，有些支持两者。
+
+只支持客户端：Client, Response
+
+支持客户端和服务端：Header, Request和Cookie
+
+只支持服务端：Server, ServeMux, JHandler/HandleFunc, ResponseWriter
+
+
+
+ServerMux数据结构：
+
+```go
+// 若没有显式创建一个Mux，那么会使用默认的DefaultServerMux
+// 那么会使用默认的DefaultServerMux，它是ServerMux的实例，同时实现了Handler
+```
+
+
+
+Server数据结构：
+
+```go
+// 可以对服务器进行详细配置，包括为请求读取操作设置超市时间，为响应写入操作设置超时时间
+// 为Server结构设置错误日志记录等
+
+```
+
+
+
+Request数据结构：
 
 ```go
 type Request struct {
 	URL *url.URL
 }
-
 ```
+
+
 
 API：
 
@@ -684,6 +790,12 @@ func (r *Request) WithContext(ctx context.Context) *Request
 
 // 移除请求URL的指定前缀，然后再传给handler
 func StripPrefix(prefix string, h Handler) Handler
+
+// 实际上是调用DefaultServeMux的方法，用于绑定处理器到DefaultServeMux
+func Handle(pattern string, handler Handler)
+
+// 实际上是调用DefaultServeMux的方法，用于绑定处理器函数到DefaultServeMux，是Handle的简化方法
+func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 ```
 
 
