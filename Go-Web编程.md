@@ -108,11 +108,32 @@ web应用有以下任务：
 
 展示如何使用Go构件一个典型的Web应用。
 
+多路复用器：用于对请求进行检查，并将请求重定向至正确的处理器进行处理。
+
+可以使用模板生成HTML响应。模板文件中可以包含特定的嵌入命令，称为动作(action)，动作在HTML文件里面会被`{{`和`}}`包围。模板文件需要进行语法分析，然后创建出响应的模板。
+
+常用模板动作：
+
+- `define <xxx>` 用于定义模板名称
+- `end` 表示结束
+- `template <xxx> .`  引用其他模板
+
+在模板文件中，除了可以访问变量的字段外，还可以调用变量的方法。
+
+PostgreSQL的安装和使用：
+
+- 安装：`sudo apt install postgresql postgresql-contrib`
+- 使用：`sudo su postgre`
+- 进入管理界面：`psql`
+- 导入数据库：`psql -f setup.sql -d chitchat`
+
 
 
 # 第三章 接收请求
 
 详细展示使用net/http包接收HTTP请求的方法。读者将学会如何编程Go Web服务器监听HTTP请求，以及如何使用处理器和处理器函数处理这些请求。
+
+
 
 
 

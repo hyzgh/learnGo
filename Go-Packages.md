@@ -552,7 +552,20 @@ fmt.Printf("%v\n", t)
 
 
 
+# html/template
 
+```go
+// 包裹函数，用于检查错误
+func Must(t *Template, err error) *Template
+
+// 检查模板文件，比如语法分析，生成模板
+func ParseFiles(filenames ...string) (*Template, error)
+
+// 执行模板，根据模板和数据生成HTML文件
+func (t *Template) ExecuteTemplate(wr io.Writer, name string, data interface{}) error
+
+
+```
 
 
 
@@ -668,9 +681,22 @@ func (c *Client) Do(req *Request) (*Response, error)
 
 // 给请求添加context
 func (r *Request) WithContext(ctx context.Context) *Request
+
+// 移除请求URL的指定前缀，然后再传给handler
+func StripPrefix(prefix string, h Handler) Handler
 ```
 
 
+
+# os/exec
+
+```go
+// 生成Cmd，用以执行Linux命令
+func Command(name string, arg ...string) *Cmd
+
+// 执行命令
+func (c *Cmd) Output() ([]byte, error)
+```
 
 
 
