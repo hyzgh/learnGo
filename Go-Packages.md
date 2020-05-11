@@ -750,6 +750,142 @@ Addr() Addr
 
 
 
+### Cookie数据结构
+
+没有设置Expires字段的是会话cookie，会在关闭浏览器时自动移除。
+
+设置了Expires字段的是持久cookie，直到指定的过期时间来临或者被手动删除为止。
+
+Expires字段和MaxAge字段都可以用于设置cookie的过期时间。Expires用于指定具体的过期时刻。MaxAge用于指明存活多少秒。之所以支持这两种，是与各大浏览器的cookie实现机制有关。
+
+虽然HTTP1.1中废弃了Expires，但几乎所有浏览器都仍然支持。而且，微软的IE6、IE7、IE8都不支持MaxAge。为了让cookie在所有浏览器上都能够正常地运作，一个实际的方法是只使用Expires或者同时使用Expires和MaxAge。
+
+```go
+type Cookie struct {
+	Name  string
+	Value string
+
+	Path       string    // optional
+	Domain     string    // optional
+	Expires    time.Time // optional
+	RawExpires string    // for reading cookies only
+
+	// MaxAge=0 means no 'Max-Age' attribute specified.
+	// MaxAge<0 means delete cookie now, equivalently 'Max-Age: 0'
+	// MaxAge>0 means Max-Age attribute present and given in seconds
+	MaxAge   int
+	Secure   bool
+	HttpOnly bool
+	SameSite SameSite
+	Raw      string
+	Unparsed []string // Raw text of unparsed attribute-value pairs
+}
+
+// 序列化cookie
+func (c *Cookie) String() string
+
+// 设置Cookie，通过SetCookie方法（推荐）
+http.SetCookie(w, &c1)
+http.SetCookie(w, &c2)
+
+// 设置Cookie，通过ResponseWriter
+w.Header().Set("Set_Cookie", c1.String())
+w.Header().Add("Set_Cookie", c2.String())
+
+// 获取某个Cookie，通过Request
+r.Cookie("first_cookie")
+
+// 获取所有Cookie，通过Request
+r.Cookies()
+```
+
+
+
+### Request数据结构
+
+#### 处理表单
+
+Go的net/http包有处理表单的方法。一般分为两个步骤解析表单信息。第一步是调用ParseForm或ParseMultipartForm方法，对请求进行语法分析。第二步是访问相应的Form字段、PostForm字段、MultiForm字段。另外还有FormValue、PostFormValue等简便函数。因为命名容易引起歧义，因此整理了下面这张表格。
+
+| 字段          | 需要调用的方法或需要访问的字段 | 键值对来源 | 内容类型      |
+| ------------- | ------------------------------ | ---------- | ------------- |
+| Form          | ParseForm方法                  | URL+表单   | URL编码       |
+| PostForm      | Form字段                       | 表单       | URL编码       |
+| MultipartForm | ParseMultipartForm方法         | 表单       | Multipart编码 |
+| FormValue     | 无                             | URL+表单   | URL编码       |
+| PostFormValue | 无                             | 表单       | URL编码       |
+
+API：
+
+```go
+// 通过对HTTP请求报文进行语法分析后得到的数据结构
+type Request struct {
+    Method string
+    URL *url.URL
+    Proto      string // "HTTP/1.0"
+    ProtoMajor int    // 1
+    ProtoMinor int    // 0
+    Header Header
+    Body io.ReadCloser
+    GetBody func() (io.ReadCloser, error)
+    ContentLength int64
+    TransferEncoding []string
+    Close bool
+    Host string
+    
+    Form url.Values  // 包括URL和主体的键值对
+    PostForm url.Values  // application/x-www-form-urlencoded编码的主体键值对
+    MultipartForm *multipart.Form  // multipart/form-data编码的主体键值对，文件
+    
+    Trailer Header
+    RemoteAddr string
+    RequestURI string
+    TLS *tls.ConnectionState
+    Cancel <-chan struct{}
+    Response *Response
+}
+
+// 给请求添加context
+func (r *Request) WithContext(ctx context.Context) *Request
+
+// 分析Form，结果放在r.Form
+func (r *Request) ParseForm() error
+
+// 以multipart/form-data编码方式分析请求主体，结果放在MultipartForm
+func (r *Request) ParseMultipartForm(maxMemory int64) error
+
+// 获取某个key的value，会自动调用ParseForm或ParseMultipartForm方法
+func (r *Request) FormValue(key string) string
+func (r *Request) PostFormValue(key string) string
+func (r *Request) FormFile(key string) (multipart.File, *multipart.FileHeader, error)
+
+```
+
+
+
+### ResponseWriter
+
+它是一个接口，处理器可以通过这个接口创建HTTP响应。在创建响应时会用到http.response结构，该结构是一个非导出的结构，用户只能通过ResponseWriter来使用这个结构。
+
+```go
+type ResponseWriter interface {
+    // 设置首部
+	Header() Header
+
+    // Write方法接受一个字节数组作为参数，并将数组中的字节写入HTTP响应的主体中。如果用户在使用Write
+    // 方法执行写法操作的时候，没有为首部设置响应的内容类型，那么响应类型将通过检测被写入的前512字节决定。
+    // 如果在调用前没有执行过WriteHeader，将默认使用200 OK作为响应的状态码。
+	Write([]byte) (int, error)
+
+    // 设置状态响应码，需在调用前设置了所有首部，在调用后不允许再设置首部
+	WriteHeader(statusCode int)
+}
+```
+
+
+
+### 其他
+
 ServerMux数据结构：
 
 ```go
@@ -769,24 +905,11 @@ Server数据结构：
 
 
 
-Request数据结构：
-
-```go
-type Request struct {
-	URL *url.URL
-}
-```
-
-
-
 API：
 
 ```go
 // 发送请求
 func (c *Client) Do(req *Request) (*Response, error)
-
-// 给请求添加context
-func (r *Request) WithContext(ctx context.Context) *Request
 
 // 移除请求URL的指定前缀，然后再传给handler
 func StripPrefix(prefix string, h Handler) Handler
@@ -800,14 +923,20 @@ func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 
 
 
-# os/exec
+## net/url
 
 ```go
-// 生成Cmd，用以执行Linux命令
-func Command(name string, arg ...string) *Cmd
-
-// 执行命令
-func (c *Cmd) Output() ([]byte, error)
+type URL struct {
+	Scheme     string
+	Opaque     string    // encoded opaque data
+	User       *Userinfo // username and password information
+	Host       string    // host or host:port
+	Path       string    // path (relative paths may omit leading slash)
+	RawPath    string    // encoded path hint (see EscapedPath method)
+	ForceQuery bool      // append a query ('?') even if RawQuery is empty
+	RawQuery   string    // encoded query values, without '?'
+	Fragment   string    // fragment for references, without '#'
+}
 ```
 
 
@@ -980,6 +1109,18 @@ json object转化为go struct时，字段需要找到目的地，有以下寻址
 如果实现了Unmarshaler，则会调用它的UnmarshalJson方法，即使json的值为null。
 
 如果实现了encoding.TextUnmarshaler，且json的值为quoted string，则会调用UnmarshalText方法，传入一个unquoted string。
+
+
+
+# os/exec
+
+```go
+// 生成Cmd，用以执行Linux命令
+func Command(name string, arg ...string) *Cmd
+
+// 执行命令
+func (c *Cmd) Output() ([]byte, error)
+```
 
 
 

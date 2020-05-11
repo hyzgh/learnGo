@@ -179,6 +179,49 @@ HttpRouter是一个高效的轻量级第三方多路复用器。官方的ServeMu
 
 介绍处理HTTP请求的相关细节，重点讲述Go是如何处理请求并返回响应的。除此之外，读者还将学会如何从HTML表单中获取数据以及如何使用cookie。
 
+## HTML表单
+
+HTML表单是使用标签`<form>`和`</form>`包围起来的部分，可以包含文本行、文本框、单选按钮、复选框、文件上传等HTML表单元素。
+
+HTML表单可以指定HTTP方法，当提交表单时，会将在表单中输入的数据以键值对的形式记录在请求里（POST方法记录在主体里，GET方法记录在URL），然后以指定的方法发送请求。HTML表单可以指定内容类型(enctype属性)，决定键值对使用何种格式。enctype属性的默认值是application/x-www-form-urlencoded。浏览器至少支持application/x-www-form-urlencoded和multipart/form-data这两种编码方式。
+
+若使用application/x-www-form-urlencoded编码，则顾名思义，和url的百分号编码方式一致。
+
+若使用multipart/form-data编码，则表单中的数据将被转化成一条MIME报文：表单中的每个键值对都构成了这个报文的一部分，并且每个键值对都带有它们各自的内容类型以及内容配置(disposition)。
+
+如何选择编码？若传送的是简单的文本数据，使用URL编码更好，因为这样更简单高效，所需的计算量少。假如需要传送大量数据（如上传文件）那么使用multipart/form-data更好。在需要时，可以使用Base64编码。
+
+## Go与HTML表单
+涉及到Request数据结构，参考Go-Package.md
+
+## Go与JSON主体的POST请求
+
+使用HTML表单是发送POST请求的一种方式，使用JSON发送POST请求是另一种方式，这种形式变得越来越常见。
+
+发送JSON数据，可以使用不同的编码方式，比如application/x-www-form-urlencoded或application/json等。
+
+Go语言的ParseForm方法并不会对application/json的编码方式进行解析，因此对于使用application/json编码方式的请求就无法解析出任何数据。**这是个值得思考的细节，我们应该不要想当然地对框架做某种假设，而应该深入文档和底层代码。**
+
+## Go的ResponseWriter
+
+涉及到ResponseWriter数据结构，参考Go-Package.md
+
+## cookie
+
+cookie是一种存储在客户端的、体积较小的信息，这些信息最初都是由服务器通过HTTP响应报文发送的。每当客户端向服务端发送一个HTTP请求时，cookie都会随着请求一同被发送至服务器。cookie的设计本意是要克服HTTP的无状态性，虽然cookie并不是完成这一目的的唯一方法，但它确是最常用的方法之一。
+
+总的来说，cookie可以划分为会话cookie(临时cookie)和持久cookie两种类型，类似超级cookie、第三方cookie、僵尸cookie通常都是持久cookie的变种。
+
+假如Cookie的Value中有空格等特殊字符，需要使用Base64编码。
+
+## Go与Cookie
+
+涉及到Cookie数据结构，参考Go-Package.md
+
+## Go与闪现消息
+
+实现原理通过将MaxAge设置为-1。
+
 
 
 # 第五章 内容展示
