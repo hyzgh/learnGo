@@ -569,6 +569,52 @@ func CreateCertificate(rand io.Reader, template, parent *Certificate, pub, priv 
 
 
 
+# database/sql
+
+```go
+// 数据库句柄，代表一个包含了零个或多个数据库连接的连接池，并发安全
+type DB struct
+
+// 设置好连接数据库所需的参数，不会马上检查参数以及建立连接，惰性
+func Open(driverName, dataSourceName string) (*DB, error)
+
+// 创建一条预处理语句，可用于重复执行
+func (db *DB) Prepare(query string) (*Stmt, error)
+
+// 执行语句，返回Row
+func (db *DB) QueryRow(query string, args ...interface{}) *Row
+
+// 执行语句，返回Rows
+func (db *DB) Query(query string, args ...interface{}) (*Rows, error)
+
+// 执行语句，不返回Row，更快
+func (db *DB) Exec(query string, args ...interface{}) (Result, error)
+
+
+// 预处理语句
+type Stmt struct
+
+// 执行语句，得到Row。如果有多个Row，只返回一个
+func (s *Stmt) QueryRow(args ...interface{}) *Row
+
+
+// 数据行
+type Row struct
+
+// 将行存储到dest里
+func (r *Row) Scan(dest ...interface{}) error
+
+
+// 多个数据行
+type Rows struct
+
+// 取下一个数据行
+func (rs *Rows) Next() bool
+
+```
+
+
+
 # flag
 
 参考官方文档。
@@ -919,6 +965,15 @@ func Handle(pattern string, handler Handler)
 
 // 实际上是调用DefaultServeMux的方法，用于绑定处理器函数到DefaultServeMux，是Handle的简化方法
 func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
+```
+
+
+
+## net/http/httputil
+
+```go
+// 将Request数据结构dump出来
+func DumpRequest(req *http.Request, body bool) ([]byte, error)
 ```
 
 
@@ -1383,6 +1438,16 @@ func main() {
 ```
 
 
+
+# runtime
+
+```go
+// 得到上层调用的信息
+func Caller(skip int) (pc uintptr, file string, line int, ok bool)
+
+// 得到pc所指的函数信息
+func FuncForPC(pc uintptr) *Func
+```
 
 
 
