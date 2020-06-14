@@ -978,6 +978,18 @@ func DumpRequest(req *http.Request, body bool) ([]byte, error)
 
 
 
+## net/http/testing
+
+用于http的测试，可以模拟http请求，解析http响应等。
+
+```go
+// 生成一个记录器，可用于存储并解析http响应
+func NewRecorder() *ResponseRecorder
+
+```
+
+
+
 ## net/url
 
 ```go
@@ -1649,11 +1661,53 @@ Swap
 
 # testing
 
-`testing.T` 普通测试
+功能测试 ：`func TestXxx(t *testing.T) {...}`
 
-`testing.B` 性能测试
+性能测试：`func BenchmarkXxx(b *testing.B) {...}`
 
-`testing.M` 可以传参
+可执行预设操作或拆卸操作：`func TestMain(m *testing.M)`  
+
+典型的`testging.M`用法：
+
+```go
+func TestMain(m *testing.M) {
+	setUp()
+	code := m.Run()
+	tearDown()
+	os.Exit(code)
+}
+```
 
 
+
+|         | Log   | Logf   |
+| ------- | ----- | ------ |
+| Fail    | Error | Errorf |
+| FailNow | Fatal | Fatalf |
+
+
+
+```go
+// 获取short标记
+func Short() bool
+
+// type T
+// 标记错误，但不结束代码的执行
+func (c *T) Fail()
+
+// 用于设置多个测试并发执行
+func (t *T) Parallel()
+
+// 标记错误，马上结束代码的执行
+func (c *T) FailNow()
+
+// 输出日志，相当于fmt.Println
+func (c *T) Log(args ...interface{})
+
+// 输出日志，相当于fmt.Printf
+func (c *T) Logf(format string, args ...interface{})
+
+// 跳过测试，用于TDD时避免烦人的错误
+func (c *T) Skip(args ...interface{})
+```
 
